@@ -1,0 +1,10 @@
+.env
+.venv/
+.pkg/
+__pycache__/
+.pytest_cache/
+*.pyc
+instance/*
+!instance/clients.db
+outputs/
+work/
