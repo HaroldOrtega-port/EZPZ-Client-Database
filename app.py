@@ -152,9 +152,9 @@ def create_app(test_config=None):
     @app.get("/")
     def index():
         query = request.args.get("q", "").strip()
-        view_mode = request.args.get("view", "tree")
+        view_mode = request.args.get("view", "table")
         if view_mode not in {"tree", "table"}:
-            view_mode = "tree"
+            view_mode = "table"
         statement = Client.query.order_by(Client.name.asc())
         if query and view_mode == "tree":
             statement = statement.filter(Client.name.ilike(f"%{query}%"))

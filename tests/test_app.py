@@ -36,7 +36,7 @@ def test_form_timezone_options_and_directory_status_groups(client):
     assert b"https://www.worldtimebuddy.com/" in form.data
     client.post("/clients/new", data={"name":"Active Co","status":"active","time_zone":"Eastern Time (ET)"})
     client.post("/clients/new", data={"name":"Inactive Co","status":"inactive","time_zone":"Pacific Time (PT)"})
-    directory = client.get("/")
+    directory = client.get("/?view=tree")
     assert b"_5-Client Operations" in directory.data
     assert b"04-Active Clients" in directory.data and b"05-Inactive Clients" in directory.data
     profile = client.get("/clients/1")
@@ -59,6 +59,13 @@ def test_all_clients_table_view_contains_searchable_details(client):
     for text in (b"Search across all client details", b"Table View Client", b"Healthcare", b"Pat Contact", b"Jamie Team", b"Mon-Thu 7 AM - 6 PM"):
         assert text in page.data
     assert b'id="client-directory-table"' in page.data
+
+
+def test_table_is_the_default_client_view(client):
+    page = client.get("/")
+    assert page.status_code == 200
+    assert b'id="client-directory-table"' in page.data
+    assert b"Search across all client details" in page.data
 
 def test_multiple_sop_resource_links(client):
     response = client.post("/clients/new", data={"name":"Multi Resource Client","status":"active","sop_url":"https://example.com/bookkeeping","sop_url_label":"Bookkeeping","sop_url_secondary":"https://example.com/admin","sop_url_secondary_label":"Administrative Support (CAM)"})
