@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% block title %}Clients · Ekwips{% endblock %}
 {% block content %}
-<section class="directory-head"><h1>CLIENTS</h1><div class="directory-actions"><div class="view-switch" aria-label="Choose client view"><a class="{% if view_mode == 'tree' %}active{% endif %}" href="{{ url_for('index', view='tree') }}">Hierarchy</a><a class="{% if view_mode == 'table' %}active{% endif %}" href="{{ url_for('index', view='table') }}">Table</a></div><a class="btn primary" href="{{ url_for('create_client') }}">+ New Client</a></div></section>
+<section class="directory-head"><h1>CLIENTS</h1><div class="directory-actions"><div class="view-switch" aria-label="Choose client view"><a class="{% if view_mode == 'tree' %}active{% endif %}" href="{{ url_for('home.index', view='tree') }}">Hierarchy</a><a class="{% if view_mode == 'table' %}active{% endif %}" href="{{ url_for('home.index', view='table') }}">Table</a></div><a class="btn primary" href="{{ url_for('clients.create_client') }}">+ New Client</a></div></section>
 
 {% if view_mode == 'table' %}
 <div class="table-search-bar"><label for="client-table-search">Search across all client details</label><div><input id="client-table-search" type="search" placeholder="Search client, contact, team member, schedule, email..." autocomplete="off"><button id="clear-table-search" class="btn" type="button">Clear</button></div><p id="table-result-count" aria-live="polite"></p></div>
@@ -10,7 +10,7 @@
     <thead><tr><th>Client</th><th>Status</th><th>Company Details</th><th>Monthly Service</th><th>Communication</th><th>Key Client Contacts</th><th>EZPZ Team</th><th>Regular Work Schedule</th><th></th></tr></thead>
     <tbody>
     {% for client in clients %}<tr class="client-table-row">
-      <td class="client-name-cell"><a href="{{ url_for('view_client', client_id=client.id) }}">{{ client.name }}</a>{% if client.website %}<a class="small-link" href="{{ client.website }}" target="_blank" rel="noopener">{{ client.website }}</a>{% endif %}</td>
+      <td class="client-name-cell"><a href="{{ url_for('clients.view_client', client_id=client.id) }}">{{ client.name }}</a>{% if client.website %}<a class="small-link" href="{{ client.website }}" target="_blank" rel="noopener">{{ client.website }}</a>{% endif %}</td>
       <td><span class="status-badge {{ client.status }}">{{ client.status|title }}</span></td>
       <td><b>Industry:</b> {{ client.industry or '—' }}<br><b>Since:</b> {{ client.client_since|date or '—' }}<br><b>Work cycle:</b> {{ client.work_cycle or '—' }}{% if client.accounting_software %}<br><b>Accounting software:</b> {{ client.accounting_software }}{% endif %}{% if client.marketing_software %}<br><b>Marketing software:</b> {{ client.marketing_software }}{% endif %}<br><b>Method:</b> {{ client.accounting_method or '—' }}<br><b>Storage:</b> {{ client.document_storage or '—' }}</td>
       <td><b>Hours:</b> {{ client.contracted_hours or '—' }}<br><b>Service:</b> {{ client.service_level or '—' }}</td>
@@ -18,18 +18,18 @@
       <td>{% for person in client.contacts %}<div class="table-person"><b>{{ person.name }}</b>{% if person.role %} · {{ person.role }}{% endif %}<br>{% if person.email %}<a href="mailto:{{ person.email }}">{{ person.email }}</a>{% endif %}{% if person.phone %}<br>{{ person.phone }}{% endif %}</div>{% else %}—{% endfor %}</td>
       <td>{% for person in client.team_members %}<div class="table-person"><b>{{ person.name }}</b>{% if person.role %} · {{ person.role }}{% endif %}<br>{% if person.email %}<a href="mailto:{{ person.email }}">{{ person.email }}</a>{% endif %}</div>{% else %}—{% endfor %}</td>
       <td>{% if client.schedule_mode == 'shared' %}<b>All members</b><br>{{ (client.shared_work_days, client.shared_start_time, client.shared_end_time)|schedule }}{% else %}{% for person in client.team_members %}<div class="table-person"><b>{{ person.name }}</b><br>{{ person.schedule_text }}</div>{% else %}—{% endfor %}{% endif %}</td>
-      <td><a class="row-edit" href="{{ url_for('edit_client', client_id=client.id) }}">Edit</a></td>
+      <td><a class="row-edit" href="{{ url_for('clients.edit_client', client_id=client.id) }}">Edit</a></td>
     </tr>{% else %}<tr><td colspan="9" class="no-rows">No client profiles yet.</td></tr>{% endfor %}
     </tbody>
   </table>
   <div id="table-no-results" class="table-no-results" hidden>No client details match your search.</div>
 </div>
 {% else %}
-<form class="tree-search" method="get"><input type="hidden" name="view" value="tree"><input name="q" value="{{ query }}" placeholder="Search client name" aria-label="Search clients"><button class="btn" type="submit">Search</button>{% if query %}<a class="btn" href="{{ url_for('index', view='tree') }}">Clear</a>{% endif %}</form>
+<form class="tree-search" method="get"><input type="hidden" name="view" value="tree"><input name="q" value="{{ query }}" placeholder="Search client name" aria-label="Search clients"><button class="btn" type="submit">Search</button>{% if query %}<a class="btn" href="{{ url_for('home.index', view='tree') }}">Clear</a>{% endif %}</form>
 <section class="client-tree panel">
   <details open class="tree-level operations"><summary><span class="tree-toggle"></span><b>_5-Client Operations</b></summary><div class="tree-children">
-    <details open class="tree-level group"><summary><span class="tree-toggle"></span><b>04-Active Clients</b><span class="tree-count">{{ active_clients|length }}</span></summary><div class="client-rows">{% for client in active_clients %}<div class="client-row"><span class="row-mark">+</span><a href="{{ url_for('view_client', client_id=client.id) }}">{{ client.name }}</a><span class="row-meta">{{ client.industry or '' }}</span><a class="row-edit" href="{{ url_for('edit_client', client_id=client.id) }}">Edit</a></div>{% else %}<p class="tree-empty">No active clients found.</p>{% endfor %}</div></details>
-    <details open class="tree-level group"><summary><span class="tree-toggle"></span><b>05-Inactive Clients</b><span class="tree-count">{{ inactive_clients|length }}</span></summary><div class="client-rows">{% for client in inactive_clients %}<div class="client-row"><span class="row-mark inactive">+</span><a href="{{ url_for('view_client', client_id=client.id) }}">{{ client.name }}</a><span class="row-meta">{{ client.industry or '' }}</span><a class="row-edit" href="{{ url_for('edit_client', client_id=client.id) }}">Edit</a></div>{% else %}<p class="tree-empty">No inactive clients found.</p>{% endfor %}</div></details>
+    <details open class="tree-level group"><summary><span class="tree-toggle"></span><b>04-Active Clients</b><span class="tree-count">{{ active_clients|length }}</span></summary><div class="client-rows">{% for client in active_clients %}<div class="client-row"><span class="row-mark">+</span><a href="{{ url_for('clients.view_client', client_id=client.id) }}">{{ client.name }}</a><span class="row-meta">{{ client.industry or '' }}</span><a class="row-edit" href="{{ url_for('clients.edit_client', client_id=client.id) }}">Edit</a></div>{% else %}<p class="tree-empty">No active clients found.</p>{% endfor %}</div></details>
+    <details open class="tree-level group"><summary><span class="tree-toggle"></span><b>05-Inactive Clients</b><span class="tree-count">{{ inactive_clients|length }}</span></summary><div class="client-rows">{% for client in inactive_clients %}<div class="client-row"><span class="row-mark inactive">+</span><a href="{{ url_for('clients.view_client', client_id=client.id) }}">{{ client.name }}</a><span class="row-meta">{{ client.industry or '' }}</span><a class="row-edit" href="{{ url_for('clients.edit_client', client_id=client.id) }}">Edit</a></div>{% else %}<p class="tree-empty">No inactive clients found.</p>{% endfor %}</div></details>
   </div></details>
 </section>
 {% endif %}
