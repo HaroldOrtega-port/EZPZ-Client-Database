@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 from flask import Flask
 from sqlalchemy import inspect, text
 
-from models import db, format_schedule
+from res.models import db, format_schedule
 
 load_dotenv()
 

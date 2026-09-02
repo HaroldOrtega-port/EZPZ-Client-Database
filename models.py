@@ -1,105 +1,96 @@
-from datetime import datetime, timezone
+from datetime import datetime
 
-from flask_sqlalchemy import SQLAlchemy
+from peewee import (
+    CharField,
+    DateField,
+    DateTimeField,
+    ForeignKeyField,
+    IntegerField,
+    Model,
+)
 
-db = SQLAlchemy()
+TEXT_FIELDS = (
+    "website", "industry", "work_cycle", "accounting_software",
+    "marketing_software", "accounting_method", "document_storage",
+    "contracted_hours", "service_level", "statement_of_work_url",
+    "sop_url", "sop_url_label", "sop_url_secondary", "sop_url_secondary_label",
+    "systems_url", "time_zone", "address", "business_hours", "time_check_url",
+    "preferred_contact_method", "weekly_meeting", "monthly_financial_review",
+    "response_time_expectation", "shared_work_days", "shared_start_time",
+    "shared_end_time",
+)
 
-
-def format_clock(value):
-    if not value:
-        return ""
-    try:
-        return datetime.strptime(value, "%H:%M").strftime("%I:%M %p").lstrip("0").replace(":00", "")
-    except ValueError:
-        return value
-
-
-def format_work_days(value):
-    if not value or "," not in value:
-        return value or ""
-    ordered = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-    selected = [day for day in ordered if day in value.split(",")]
-    if not selected:
-        return ""
-    runs, start, previous = [], selected[0], selected[0]
-    for day in selected[1:]:
-        if ordered.index(day) == ordered.index(previous) + 1:
-            previous = day
-            continue
-        runs.append(start if start == previous else f"{start}-{previous}")
-        start = previous = day
-    runs.append(start if start == previous else f"{start}-{previous}")
-    return ", ".join(runs)
-
-
-def format_schedule(days, start, end):
-    days = format_work_days(days)
-    times = " - ".join(part for part in (format_clock(start), format_clock(end)) if part)
-    return " ".join(part for part in (days or "", times) if part) or "—"
+_TEXT_DEFAULTS = {
+    "website": 255, "industry": 120, "work_cycle": 80,
+    "accounting_software": 255, "marketing_software": 500,
+    "accounting_method": 120, "document_storage": 255, "contracted_hours": 80,
+    "service_level": 255, "statement_of_work_url": 500, "sop_url": 500,
+    "sop_url_label": 120, "sop_url_secondary": 500, "sop_url_secondary_label": 120,
+    "systems_url": 500, "time_zone": 120, "address": 500, "business_hours": 255,
+    "time_check_url": 500, "preferred_contact_method": 120, "weekly_meeting": 255,
+    "monthly_financial_review": 255, "response_time_expectation": 255,
+    "shared_work_days": 120, "shared_start_time": 10, "shared_end_time": 10,
+}
 
 
-class Client(db.Model):
-    __tablename__ = "clients"
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(180), nullable=False, index=True)
-    status = db.Column(db.String(10), nullable=False, default="active", index=True)
-    website = db.Column(db.String(255))
-    industry = db.Column(db.String(120))
-    client_since = db.Column(db.Date)
-    work_cycle = db.Column(db.String(80))
-    accounting_software = db.Column(db.String(255))
-    marketing_software = db.Column(db.String(500))
-    accounting_method = db.Column(db.String(120))
-    document_storage = db.Column(db.String(255))
-    contracted_hours = db.Column(db.String(80))
-    service_level = db.Column(db.String(255))
-    statement_of_work_url = db.Column(db.String(500))
-    sop_url = db.Column(db.String(500))
-    sop_url_label = db.Column(db.String(120))
-    sop_url_secondary = db.Column(db.String(500))
-    sop_url_secondary_label = db.Column(db.String(120))
-    systems_url = db.Column(db.String(500))
-    time_zone = db.Column(db.String(120))
-    address = db.Column(db.String(500))
-    business_hours = db.Column(db.String(255))
-    time_check_url = db.Column(db.String(500))
-    preferred_contact_method = db.Column(db.String(120))
-    weekly_meeting = db.Column(db.String(255))
-    monthly_financial_review = db.Column(db.String(255))
-    response_time_expectation = db.Column(db.String(255))
-    schedule_mode = db.Column(db.String(20), nullable=False, default="shared")
-    shared_work_days = db.Column(db.String(120))
-    shared_start_time = db.Column(db.String(10))
-    shared_end_time = db.Column(db.String(10))
-    created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
-    updated_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
-    contacts = db.relationship("ClientContact", cascade="all, delete-orphan", backref="client", order_by="ClientContact.position")
-    team_members = db.relationship("TeamMember", cascade="all, delete-orphan", backref="client", order_by="TeamMember.position")
+def make_client_model(cls):
+    attrs = {
+        "id": IntegerField(primary_key=True),
+        "name": CharField(180, null=False),
+        "status": CharField(10, null=False, default="active"),
+        "client_since": DateField(null=True),
+        "schedule_mode": CharField(20, null=False, default="shared"),
+        "created_at": DateTimeField(null=True, default=datetime.now),
+        "updated_at": DateTimeField(null=True, default=datetime.now),
+        "Meta": type("Meta", (), {"table_name": "clients"}),
+    }
+    for field in TEXT_FIELDS:
+        attrs[field] = CharField(_TEXT_DEFAULTS.get(field, 255), null=True)
+    return type("Client", (Model,), attrs)
 
 
-class ClientContact(db.Model):
-    __tablename__ = "client_contacts"
-    id = db.Column(db.Integer, primary_key=True)
-    client_id = db.Column(db.Integer, db.ForeignKey("clients.id", ondelete="CASCADE"), nullable=False, index=True)
-    role = db.Column(db.String(120))
-    name = db.Column(db.String(180), nullable=False)
-    email = db.Column(db.String(255))
-    phone = db.Column(db.String(80))
-    position = db.Column(db.Integer, nullable=False, default=0)
+def make_contact_model(cls):
+    return type(
+        "ClientContact",
+        (Model,),
+        {
+            "id": IntegerField(primary_key=True),
+            "client": ForeignKeyField(cls, backref="contacts", column_name="client_id", on_delete="CASCADE"),
+            "role": CharField(120, null=True),
+            "name": CharField(180, null=False),
+            "email": CharField(255, null=True),
+            "phone": CharField(80, null=True),
+            "position": IntegerField(null=False, default=0),
+            "Meta": type("Meta", (), {"table_name": "client_contacts"}),
+        },
+    )
 
 
-class TeamMember(db.Model):
-    __tablename__ = "team_members"
-    id = db.Column(db.Integer, primary_key=True)
-    client_id = db.Column(db.Integer, db.ForeignKey("clients.id", ondelete="CASCADE"), nullable=False, index=True)
-    role = db.Column(db.String(120))
-    name = db.Column(db.String(180), nullable=False)
-    email = db.Column(db.String(255))
-    work_days = db.Column(db.String(120))
-    start_time = db.Column(db.String(10))
-    end_time = db.Column(db.String(10))
-    position = db.Column(db.Integer, nullable=False, default=0)
+def make_team_model(cls):
+    return type(
+        "TeamMember",
+        (Model,),
+        {
+            "id": IntegerField(primary_key=True),
+            "client": ForeignKeyField(cls, backref="team_members", column_name="client_id", on_delete="CASCADE"),
+            "role": CharField(120, null=True),
+            "name": CharField(180, null=False),
+            "email": CharField(255, null=True),
+            "work_days": CharField(120, null=True),
+            "start_time": CharField(10, null=True),
+            "end_time": CharField(10, null=True),
+            "position": IntegerField(null=False, default=0),
+            "Meta": type("Meta", (), {"table_name": "team_members"}),
+        },
+    )
 
-    @property
-    def schedule_text(self):
-        return format_schedule(self.work_days, self.start_time, self.end_time)
+
+def build_models(database):
+    """Build Client, ClientContact, TeamMember bound to *database*."""
+    Client = make_client_model(None)
+    Client._meta.database = database
+    ClientContact = make_contact_model(Client)
+    ClientContact._meta.database = database
+    TeamMember = make_team_model(Client)
+    TeamMember._meta.database = database
+    return Client, ClientContact, TeamMember

@@ -1,10 +1,10 @@
 import pytest
-from models import Client, db
+from res.models import Client, db
 from res.main import create_app
 
 @pytest.fixture()
 def app():
-    return create_app({"TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:", "SECRET_KEY": "test"})
+    return create_app({"TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:", "SECRET_KEY": "test", "WTF_CSRF_ENABLED": False})
 
 @pytest.fixture()
 def client(app):

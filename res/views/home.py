@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request
 
-from models import Client
+from res.models import Client
 
 bp = Blueprint("home", __name__)
 
