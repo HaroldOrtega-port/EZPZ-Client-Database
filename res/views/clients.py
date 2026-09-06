@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from flask import Blueprint, flash, redirect, render_template, request, url_for
+from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
 
 from res.models import Client, ClientContact, TeamMember, db
 from res.forms import ClientForm, build_people_from_form
@@ -8,12 +8,18 @@ from res.forms import ClientForm, build_people_from_form
 bp = Blueprint("clients", __name__)
 
 
+def get_or_404(model, obj_id):
+    try:
+        return model.get_by_id(obj_id)
+    except model.DoesNotExist:
+        abort(404)
+
+
 @bp.route("/clients/new", methods=["GET", "POST"])
 def create_client():
     client = Client()
     if request.method == "POST" and save_client(client):
-        db.session.add(client)
-        db.session.commit()
+        client.save()
         flash("Client profile created.", "success")
         return redirect(url_for("clients.view_client", client_id=client.id))
     return render_template("form.html", client=None)
@@ -21,14 +27,14 @@ def create_client():
 
 @bp.get("/clients/<int:client_id>")
 def view_client(client_id):
-    return render_template("view.html", client=db.get_or_404(Client, client_id))
+    return render_template("view.html", client=get_or_404(Client, client_id))
 
 
 @bp.route("/clients/<int:client_id>/edit", methods=["GET", "POST"])
 def edit_client(client_id):
-    client = db.get_or_404(Client, client_id)
+    client = get_or_404(Client, client_id)
     if request.method == "POST" and save_client(client):
-        db.session.commit()
+        client.save()
         flash("Client profile updated.", "success")
         return redirect(url_for("clients.view_client", client_id=client.id))
     return render_template("form.html", client=client)
@@ -36,8 +42,8 @@ def edit_client(client_id):
 
 @bp.post("/clients/<int:client_id>/delete")
 def delete_client(client_id):
-    db.session.delete(db.get_or_404(Client, client_id))
-    db.session.commit()
+    client = get_or_404(Client, client_id)
+    client.delete_instance(recursive=True)
     flash("Client profile deleted.", "success")
     return redirect(url_for("home.index"))
 
@@ -77,35 +83,43 @@ def save_client(client):
     if contact_errors:
         flash("Each contact must have a name.", "error")
         return False
-    client.contacts = [
-        ClientContact(
-            name=r.name,
-            role=r.role,
-            email=r.email,
-            phone=r.phone,
-            position=i,
-        )
-        for i, r in enumerate(contact_rows)
-        if r.name
-    ]
 
     team_rows, team_errors = build_people_from_form(form, "team")
     if team_errors:
         flash("Each team member must have a name.", "error")
         return False
-    client.team_members = [
-        TeamMember(
-            name=r.name,
-            role=r.role,
-            email=r.email,
-            work_days=r.work_days,
-            start_time=r.start_time,
-            end_time=r.end_time,
-            position=i,
-        )
-        for i, r in enumerate(team_rows)
-        if r.name
-    ]
 
     client.updated_at = datetime.now(timezone.utc)
+
+    with db.atomic():
+        client.save()
+
+        if client.id:
+            ClientContact.delete().where(ClientContact.client == client).execute()
+            TeamMember.delete().where(TeamMember.client == client).execute()
+
+        for i, r in enumerate(contact_rows):
+            if r.name:
+                ClientContact.create(
+                    client=client,
+                    name=r.name,
+                    role=r.role,
+                    email=r.email,
+                    phone=r.phone,
+                    position=i,
+                )
+
+        for i, r in enumerate(team_rows):
+            if r.name:
+                TeamMember.create(
+                    client=client,
+                    name=r.name,
+                    role=r.role,
+                    email=r.email,
+                    work_days=r.work_days,
+                    start_time=r.start_time,
+                    end_time=r.end_time,
+                    position=i,
+                )
+
     return True

@@ -3,19 +3,11 @@ from datetime import datetime
 
 from dotenv import load_dotenv
 from flask import Flask
-from sqlalchemy import inspect, text
+from peewee import MySQLDatabase
 
-from res.models import db, format_schedule
+from res.models import Client, TeamMember, db, ALL_MODELS
 
 load_dotenv()
-
-CLIENT_FIELDS = (
-    "website", "industry", "work_cycle", "accounting_software", "marketing_software", "accounting_method", "document_storage",
-    "contracted_hours", "service_level", "statement_of_work_url", "sop_url", "sop_url_label",
-    "sop_url_secondary", "sop_url_secondary_label", "systems_url",
-    "time_zone", "address", "business_hours", "preferred_contact_method",
-    "weekly_meeting", "monthly_financial_review", "response_time_expectation",
-)
 
 TIME_OPTIONS = []
 for hour in range(24):
@@ -25,27 +17,28 @@ for hour in range(24):
         TIME_OPTIONS.append((value, label))
 
 
-def database_uri():
-    name = os.getenv("DB_NAME")
-    user = os.getenv("DB_USER")
-    if name and user:
-        password = os.getenv("DB_PASS", "")
-        host = os.getenv("DB_HOST", "localhost")
-        port = os.getenv("DB_PORT", "3306")
-        return f"mysql+pymysql://{user}:{password}@{host}:{port}/{name}?charset=utf8mb4"
-    return os.getenv("DATABASE_URL", "sqlite:///clients.db")
-
-
 def create_app(test_config=None):
     app = Flask(__name__)
     app.config.update(
         SECRET_KEY=os.getenv("SECRET_KEY", "dev-only-change-me"),
-        SQLALCHEMY_DATABASE_URI=database_uri(),
-        SQLALCHEMY_TRACK_MODIFICATIONS=False,
     )
     if test_config:
         app.config.update(test_config)
-    db.init_app(app)
+
+    if test_config and "DATABASE" in test_config:
+        database = test_config["DATABASE"]
+    else:
+        database = MySQLDatabase(
+            os.getenv("DB_NAME", "ez_clients"),
+            user=os.getenv("DB_USER", "root"),
+            password=os.getenv("DB_PASS", ""),
+            host=os.getenv("DB_HOST", "localhost"),
+            port=int(os.getenv("DB_PORT", "3306")),
+            charset="utf8mb4",
+        )
+    db.initialize(database)
+    database.connect(reuse_if_open=True)
+    database.create_tables(ALL_MODELS)
 
     from res.initialize import routes
     routes(app)
@@ -60,10 +53,10 @@ def create_app(test_config=None):
 
     @app.template_filter("schedule")
     def schedule_filter(values):
+        from res.models import format_schedule
         return format_schedule(*values)
 
-    with app.app_context():
-        db.create_all()
+    if not (test_config and test_config.get("TESTING")):
         ensure_schedule_columns()
     return app
 
@@ -88,10 +81,14 @@ def ensure_schedule_columns():
             "end_time": "VARCHAR(10)",
         },
     }
-    schema = inspect(db.engine)
+    cursor = db.execute_sql("SHOW TABLES")
+    table_names = {row[0] for row in cursor.fetchall()}
+
     for table_name, columns in additions.items():
-        existing = {column["name"] for column in schema.get_columns(table_name)}
+        if table_name not in table_names:
+            continue
+        cursor = db.execute_sql(f"DESCRIBE {table_name}")
+        existing = {row[0] for row in cursor.fetchall()}
         for column_name, definition in columns.items():
             if column_name not in existing:
-                db.session.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {definition}"))
-    db.session.commit()
+                db.execute_sql(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {definition}")

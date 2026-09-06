@@ -1,8 +1,21 @@
 from datetime import datetime, timezone
 
-from flask_sqlalchemy import SQLAlchemy
+from peewee import (
+    CharField,
+    DatabaseProxy,
+    DateField,
+    DateTimeField,
+    ForeignKeyField,
+    IntegerField,
+    Model,
+)
 
-db = SQLAlchemy()
+db = DatabaseProxy()
+
+
+class BaseModel(Model):
+    class Meta:
+        database = db
 
 
 def format_clock(value):
@@ -38,68 +51,75 @@ def format_schedule(days, start, end):
     return " ".join(part for part in (days or "", times) if part) or "—"
 
 
-class Client(db.Model):
-    __tablename__ = "clients"
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(180), nullable=False, index=True)
-    status = db.Column(db.String(10), nullable=False, default="active", index=True)
-    website = db.Column(db.String(255))
-    industry = db.Column(db.String(120))
-    client_since = db.Column(db.Date)
-    work_cycle = db.Column(db.String(80))
-    accounting_software = db.Column(db.String(255))
-    marketing_software = db.Column(db.String(500))
-    accounting_method = db.Column(db.String(120))
-    document_storage = db.Column(db.String(255))
-    contracted_hours = db.Column(db.String(80))
-    service_level = db.Column(db.String(255))
-    statement_of_work_url = db.Column(db.String(500))
-    sop_url = db.Column(db.String(500))
-    sop_url_label = db.Column(db.String(120))
-    sop_url_secondary = db.Column(db.String(500))
-    sop_url_secondary_label = db.Column(db.String(120))
-    systems_url = db.Column(db.String(500))
-    time_zone = db.Column(db.String(120))
-    address = db.Column(db.String(500))
-    business_hours = db.Column(db.String(255))
-    time_check_url = db.Column(db.String(500))
-    preferred_contact_method = db.Column(db.String(120))
-    weekly_meeting = db.Column(db.String(255))
-    monthly_financial_review = db.Column(db.String(255))
-    response_time_expectation = db.Column(db.String(255))
-    schedule_mode = db.Column(db.String(20), nullable=False, default="shared")
-    shared_work_days = db.Column(db.String(120))
-    shared_start_time = db.Column(db.String(10))
-    shared_end_time = db.Column(db.String(10))
-    created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
-    updated_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
-    contacts = db.relationship("ClientContact", cascade="all, delete-orphan", backref="client", order_by="ClientContact.position")
-    team_members = db.relationship("TeamMember", cascade="all, delete-orphan", backref="client", order_by="TeamMember.position")
+class Client(BaseModel):
+    id = IntegerField(primary_key=True)
+    name = CharField(180, null=False)
+    status = CharField(10, null=False, default="active")
+    website = CharField(255, null=True)
+    industry = CharField(120, null=True)
+    client_since = DateField(null=True)
+    work_cycle = CharField(80, null=True)
+    accounting_software = CharField(255, null=True)
+    marketing_software = CharField(500, null=True)
+    accounting_method = CharField(120, null=True)
+    document_storage = CharField(255, null=True)
+    contracted_hours = CharField(80, null=True)
+    service_level = CharField(255, null=True)
+    statement_of_work_url = CharField(500, null=True)
+    sop_url = CharField(500, null=True)
+    sop_url_label = CharField(120, null=True)
+    sop_url_secondary = CharField(500, null=True)
+    sop_url_secondary_label = CharField(120, null=True)
+    systems_url = CharField(500, null=True)
+    time_zone = CharField(120, null=True)
+    address = CharField(500, null=True)
+    business_hours = CharField(255, null=True)
+    time_check_url = CharField(500, null=True)
+    preferred_contact_method = CharField(120, null=True)
+    weekly_meeting = CharField(255, null=True)
+    monthly_financial_review = CharField(255, null=True)
+    response_time_expectation = CharField(255, null=True)
+    schedule_mode = CharField(20, null=False, default="shared")
+    shared_work_days = CharField(120, null=True)
+    shared_start_time = CharField(10, null=True)
+    shared_end_time = CharField(10, null=True)
+    created_at = DateTimeField(null=True, default=lambda: datetime.now(timezone.utc))
+    updated_at = DateTimeField(null=True, default=lambda: datetime.now(timezone.utc))
+
+    class Meta:
+        table_name = "clients"
 
 
-class ClientContact(db.Model):
-    __tablename__ = "client_contacts"
-    id = db.Column(db.Integer, primary_key=True)
-    client_id = db.Column(db.Integer, db.ForeignKey("clients.id", ondelete="CASCADE"), nullable=False, index=True)
-    role = db.Column(db.String(120))
-    name = db.Column(db.String(180), nullable=False)
-    email = db.Column(db.String(255))
-    phone = db.Column(db.String(80))
-    position = db.Column(db.Integer, nullable=False, default=0)
+class ClientContact(BaseModel):
+    id = IntegerField(primary_key=True)
+    client = ForeignKeyField(Client, backref="contacts", column_name="client_id", on_delete="CASCADE")
+    role = CharField(120, null=True)
+    name = CharField(180, null=False)
+    email = CharField(255, null=True)
+    phone = CharField(80, null=True)
+    position = IntegerField(null=False, default=0)
+
+    class Meta:
+        table_name = "client_contacts"
 
 
-class TeamMember(db.Model):
-    __tablename__ = "team_members"
-    id = db.Column(db.Integer, primary_key=True)
-    client_id = db.Column(db.Integer, db.ForeignKey("clients.id", ondelete="CASCADE"), nullable=False, index=True)
-    role = db.Column(db.String(120))
-    name = db.Column(db.String(180), nullable=False)
-    email = db.Column(db.String(255))
-    work_days = db.Column(db.String(120))
-    start_time = db.Column(db.String(10))
-    end_time = db.Column(db.String(10))
-    position = db.Column(db.Integer, nullable=False, default=0)
+class TeamMember(BaseModel):
+    id = IntegerField(primary_key=True)
+    client = ForeignKeyField(Client, backref="team_members", column_name="client_id", on_delete="CASCADE")
+    role = CharField(120, null=True)
+    name = CharField(180, null=False)
+    email = CharField(255, null=True)
+    work_days = CharField(120, null=True)
+    start_time = CharField(10, null=True)
+    end_time = CharField(10, null=True)
+    position = IntegerField(null=False, default=0)
+
+    class Meta:
+        table_name = "team_members"
 
     @property
     def schedule_text(self):
         return format_schedule(self.work_days, self.start_time, self.end_time)
+
+
+ALL_MODELS = [Client, ClientContact, TeamMember]
