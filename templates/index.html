@@ -4,7 +4,7 @@
 <section class="directory-head"><h1>CLIENTS</h1><div class="directory-actions"><div class="view-switch" aria-label="Choose client view"><a class="{% if view_mode == 'tree' %}active{% endif %}" href="{{ url_for('index', view='tree') }}">Hierarchy</a><a class="{% if view_mode == 'table' %}active{% endif %}" href="{{ url_for('index', view='table') }}">Table</a></div><a class="btn primary" href="{{ url_for('create_client') }}">+ New Client</a></div></section>
 
 {% if view_mode == 'table' %}
-<div class="table-search-bar"><label for="client-table-search">Search across all client details</label><div><input id="client-table-search" type="search" placeholder="Search client, contact, team member, schedule, email..." autocomplete="off"><button id="clear-table-search" class="btn" type="button">Clear</button></div><p id="table-result-count" aria-live="polite"></p></div>
+<div class="table-search-bar"><label for="client-table-search">Search across all client details</label><div><input id="client-table-search" type="search" placeholder="Search client, contact, team member, schedule, email..." autocomplete="off"><button id="clear-table-search" class="btn" type="button">Clear</button><a class="btn time-check-link" href="https://www.worldtimebuddy.com/" target="_blank" rel="noopener noreferrer">World Time Checker ↗</a></div><p id="table-result-count" aria-live="polite"></p></div>
 <div class="directory-table-wrap panel">
   <table id="client-directory-table" class="directory-table">
     <thead><tr><th>Client</th><th>Status</th><th>Company Details</th><th>Monthly Service</th><th>Communication</th><th>Key Client Contacts</th><th>EZPZ Team</th><th>Regular Work Schedule</th><th></th></tr></thead>
