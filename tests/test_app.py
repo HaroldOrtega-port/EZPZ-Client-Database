@@ -77,3 +77,20 @@ def test_marketing_software_field(client):
     response = client.post("/clients/new", data={"name":"Marketing Client","status":"active","marketing_software":"Buildout, Canva"})
     profile = client.get(response.headers["Location"])
     assert b"Marketing Software:" in profile.data and b"Buildout, Canva" in profile.data
+
+def test_onboarding_date_and_billing_fields(app, client):
+    response = client.post("/clients/new", data={"name":"Billing Client","status":"active","onboarding_date":"2026-09-24","billing":"auto_ach"})
+    assert response.status_code == 302
+    profile = client.get(response.headers["Location"])
+    assert b"Onboarding Date:" in profile.data and b"Sep 24, 2026" in profile.data
+    assert b"Billing:" in profile.data and b"Auto ACH" in profile.data
+    form = client.get("/clients/1/edit")
+    assert b'value="auto_ach" selected' in form.data
+    with app.app_context():
+        saved = db.session.get(Client, 1)
+        assert saved.onboarding_date.isoformat() == "2026-09-24"
+        assert saved.billing == "auto_ach"
+
+def test_invalid_billing_is_rejected(client):
+    response = client.post("/clients/new", data={"name":"Bad Billing","status":"active","billing":"wire_transfer"}, follow_redirects=True)
+    assert b"Choose a valid billing option" in response.data

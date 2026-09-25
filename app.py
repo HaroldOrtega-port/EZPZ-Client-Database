@@ -18,6 +18,8 @@ class Client(db.Model):
     website = db.Column(db.String(255))
     industry = db.Column(db.String(120))
     client_since = db.Column(db.Date)
+    onboarding_date = db.Column(db.Date)
+    billing = db.Column(db.String(40))
     work_cycle = db.Column(db.String(80))
     accounting_software = db.Column(db.String(255))
     marketing_software = db.Column(db.String(500))
@@ -203,12 +205,19 @@ def create_app(test_config=None):
         client.name, client.status = name, status
         for field in CLIENT_FIELDS:
             setattr(client, field, request.form.get(field, "").strip() or None)
-        raw_date = request.form.get("client_since", "")
-        try:
-            client.client_since = date.fromisoformat(raw_date) if raw_date else None
-        except ValueError:
-            flash("Client since must be a valid date.", "error")
+        for field, label in (("client_since", "Client since"), ("onboarding_date", "Onboarding date")):
+            raw_date = request.form.get(field, "")
+            try:
+                setattr(client, field, date.fromisoformat(raw_date) if raw_date else None)
+            except ValueError:
+                flash(f"{label} must be a valid date.", "error")
+                return False
+        billing = request.form.get("billing", "").strip()
+        valid_billing = {"auto_ach", "auto_credit_card", "client_manual_payment"}
+        if billing and billing not in valid_billing:
+            flash("Choose a valid billing option.", "error")
             return False
+        client.billing = billing or None
         client.contacts = build_people(ClientContact, "contact", include_phone=True)
         schedule_mode = request.form.get("schedule_mode", "shared")
         client.schedule_mode = schedule_mode if schedule_mode in {"shared", "individual"} else "shared"
@@ -255,6 +264,8 @@ def ensure_schedule_columns():
         "clients": {
             "accounting_method": "VARCHAR(120)",
             "marketing_software": "VARCHAR(500)",
+            "onboarding_date": "DATE",
+            "billing": "VARCHAR(40)",
             "sop_url_label": "VARCHAR(120)",
             "sop_url_secondary": "VARCHAR(500)",
             "sop_url_secondary_label": "VARCHAR(120)",
